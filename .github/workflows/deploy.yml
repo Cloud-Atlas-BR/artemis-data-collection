@@ -32,4 +32,8 @@ jobs:
           aws-region: us-east-1
           
       - name: Check Buckets
-        run: aws cloudformation deploy --stack-name artemis-data-collection --template-file ./infra/lambda.yaml --parameter-overrides file://./infra/parameters.json
+        run: |
+          aws cloudformation deploy \
+              --stack-name artemis-data-collection \
+              --template-file ./infra/lambda.yaml \
+              --parameter-overrides file://./infra/parameters.json
