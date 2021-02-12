@@ -33,7 +33,6 @@ jobs:
           
       - name: Check Buckets
         run: |
-          aws cloudformation deploy \
-            --stack-name artemis-data-collection \
+          aws cloudformation deploy --stack-name artemis-data-collection 
             --template-file infra/lambda.yaml \ 
-            --parameter-overrides file://infra/parameters.json
+            --parameter-overrides file://./infra/parameters.json
