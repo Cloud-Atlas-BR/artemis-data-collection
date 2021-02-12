@@ -36,4 +36,4 @@ jobs:
           aws cloudformation deploy \
             --stack-name artemis-data-collection \
             --template-file infra/lambda.yaml \ 
-            --parameter-overrides file://./infra/parameters.json
+            --parameter-overrides file://infra/parameters.json
