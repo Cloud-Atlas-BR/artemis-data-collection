@@ -1,0 +1,8 @@
+{
+    "Parameters": {
+      "ProjectName": "artemis-data-collection",
+      "LambdaRuntime": "python3.8",
+      "LambdaTimeout": "45",
+      "LambdaMemory": "128"    
+    }
+  }

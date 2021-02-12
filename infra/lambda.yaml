@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  LambdaRuntime:
+    Type: String
+
+  LambdaTimeout:
+    Type: String
+    
+  LambdaMemory:
+    Type: Number
+    MinValue: 128
+    MaxValue: 3008
+
+Resources:
+  Function: 
+    Type: AWS::Lambda::Function
+    Properties: 
+      FunctionName: !Sub ${ProjectName}-lambda-function
+      Handler: index.handler # lambda_function.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      # Layers:
+      #   - !Ref Layer
+      # Code: 
+      #   S3Bucket: !Ref BucketName
+      #   S3Key: !Ref ObjectKey
+      Code:
+        ZipFile: |
+          var aws = require('aws-sdk')
+          var response = require('cfn-response')
+          exports.handler = function(event, context) {
+              console.log("REQUEST RECEIVED:\n" + JSON.stringify(event))
+              // For Delete requests, immediately send a SUCCESS response.
+              if (event.RequestType == "Delete") {
+                  response.send(event, context, "SUCCESS")
+                  return
+              }
+              var responseStatus = "FAILED"
+              var responseData = {}
+              var functionName = event.ResourceProperties.FunctionName
+              var lambda = new aws.Lambda()
+              lambda.invoke({ FunctionName: functionName }, function(err, invokeResult) {
+                  if (err) {
+                      responseData = {Error: "Invoke call failed"}
+                      console.log(responseData.Error + ":\n", err)
+                  }
+                  else responseStatus = "SUCCESS"
+                  response.send(event, context, responseStatus, responseData)
+              })
+          }
+      Runtime: !Ref LambdaRuntime
+      MemorySize: !Ref LambdaMemory
+      Timeout: !Ref LambdaTimeout
+
+  # Layer:
+  #   Type: AWS::Lambda::LayerVersion
+  #   Properties:
+  #     CompatibleRuntimes:
+  #       - python3.6
+  #     Content:
+  #       S3Bucket: !Ref LayerBucketName
+  #       S3Key: !Ref LayerObjectKey
+  #     LayerName: !Sub ${ProjectName}-lambda-layer
+  #     LicenseInfo: MIT
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-lambda-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${ProjectName}-lambda-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - "cloudformation:DescribeChangeSet"
+                  - "cloudformation:DescribeStackResources"
+                  - "cloudformation:DescribeStacks"
+                  - "cloudformation:GetTemplate"
+                  - "cloudformation:ListStackResources"
+                  - "cloudwatch:*"
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:DescribeSubnets"
+                  - "ec2:DescribeVpcs"
+                  - "events:*"
+                  - "iam:GetPolicy"
+                  - "iam:GetPolicyVersion"
+                  - "iam:GetRole"
+                  - "iam:GetRolePolicy"
+                  - "iam:ListAttachedRolePolicies"
+                  - "iam:ListRolePolicies"
+                  - "iam:ListRoles"
+                  - "iam:PassRole"
+                  - "kms:ListAliases"
+                  - "lambda:*"
+                  - "logs:*"
+                  - "s3:*"
+                  - "sns:ListSubscriptions"
+                  - "sns:ListSubscriptionsByTopic"
+                  - "sns:ListTopics"
+                  - "sns:Publish"
+                  - "sns:Subscribe"
+                  - "sns:Unsubscribe"
+                  - "sqs:ListQueues"
+                  - "sqs:SendMessage"
+                  - "tag:GetResources"
+                Resource: '*'
+      MaxSessionDuration: 3600 
+
+  Scheduler:
+    Type: AWS::Events::Rule
+    Properties: 
+      EventBusName: default
+      Name: !Ref ProjectName
+      ScheduleExpression: "cron(56 23 * * ? *)"
+      State: ENABLED
+      Targets: 
+        - 
+          Arn: !GetAtt Function.Arn
+          Id: !Sub ${ProjectName}-target
+
+  SchedulerInvokePermission: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref Function
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt Scheduler.Arn

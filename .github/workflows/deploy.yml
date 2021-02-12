@@ -33,4 +33,6 @@ jobs:
           
       - name: Check Buckets
         run: |
-          aws s3 ls
+          aws cloudformation deploy \
+            --template-file infra/lambda.yaml \
+            --parameter-overrides file://infra/parameters.json
